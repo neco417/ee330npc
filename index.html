@@ -8993,6 +8993,51 @@
     font-weight: 600;
 }
 /* ▲▲▲ 新增CSS粘贴结束 ▲▲▲ */
+/* 修复iOS输入框自动放大问题 (强制版) */
+input, textarea, select {
+    font-size: 16px !important;
+}
+/* ▼▼▼ 【全新】这是为日记收藏功能添加的样式 ▼▼▼ */
+
+/* 收藏按钮激活时的样式（填充黄色） */
+#favorite-diary-btn.active svg {
+    fill: #ffc107; /* 您可以换成任何您喜欢的颜色 */
+    color: #ffc107;
+}
+
+/* 收藏卡片中日记标题的样式 */
+.favorite-item-card .diary-title {
+    font-weight: 600;
+    display: block;
+    margin-bottom: 8px;
+    font-size: 15px;
+}
+
+/* 收藏卡片中日记内容预览的样式 */
+.favorite-item-card .diary-content-preview {
+    font-size: 13px;
+    opacity: 0.8;
+    line-height: 1.6;
+    
+    /* 多行省略号效果 */
+    display: -webkit-box;
+    -webkit-line-clamp: 3; /* 最多显示3行 */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+/* ▼▼▼ 把这段CSS代码【完全删除】▼▼▼ */
+.favorite-item-card .diary-content-preview {
+    font-size: 13px;
+    opacity: 0.8;
+    line-height: 1.6;
+    
+    /* 多行省略号效果 */
+    display: -webkit-box;
+    -webkit-line-clamp: 3; /* 最多显示3行 */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+/* ▲▲▲ 删除到这里结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -9335,11 +9380,18 @@
 
 <!-- 【【【核心新增：全新的日记详情屏幕】】】 -->
 <div id="char-diary-detail-screen" class="char-screen">
-    <div class="header">
-        <span class="back-btn" id="char-diary-detail-back-btn">‹ </span>
-        <span id="char-diary-detail-title"></span>
-        <span style="width: 50px;"></span>
+<div class="header">
+    <span class="back-btn" id="char-diary-detail-back-btn">‹ </span>
+    <span id="char-diary-detail-title"></span>
+    <!-- 【核心新增】在这里添加收藏按钮 -->
+    <div class="header-actions">
+        <span class="action-btn" id="favorite-diary-btn" title="收藏">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+        </span>
     </div>
+</div>
     <div id="char-diary-detail-content-wrapper" class="list-container">
         <div id="char-diary-detail-content">
             <!-- 日记内容将由JS动态生成在这里 -->
@@ -11953,6 +12005,7 @@ let state = { chats: {}, activeChatId: null, globalSettings: {}, apiConfig: {}, 
 let activeCharacterId = null; // 用于跟踪当前正在查看的CphoneID
 let editingMemoId = null;
 let editingDiaryId = null;
+let activeDiaryForViewing = null; // 用于暂存当前正在查看的日记对象
         // ▼▼▼ 在下方粘贴新变量 ▼▼▼
         let shoppingCart = []; // 数据结构将变为 [{ productId: 123, quantity: 1 }, ...]
         let editingProductId = null; // 用于存储正在编辑的商品ID
@@ -12904,21 +12957,21 @@ const DEFAULT_NOTIFICATION_SOUND = 'https://www.myinstants.com/media/sounds/noti
                 authorAvatar = defaultAvatar;
             }
         
-            function renderOriginalPostContent(targetPost) {
-                let innerContentHtml = '';
-                // ▼▼▼ 已添加 Markdown 解析 ▼▼▼
-                const publicTextHtml = targetPost.publicText ? `<div class="post-content">${parseMarkdown(targetPost.publicText).replace(/\n/g, '<br>')}</div>` : '';
-        
-                if (targetPost.type === 'shuoshuo') {
-                    // ▼▼▼ 已添加 Markdown 解析 ▼▼▼
-                    innerContentHtml = `<div class="post-content" style="margin-bottom: 10px;">${parseMarkdown(targetPost.content).replace(/\n/g, '<br>')}</div>`;
-                } else if (targetPost.type === 'image_post' && targetPost.imageUrl) {
-                    innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="${targetPost.imageUrl}" class="chat-image"></div>` : `<img src="${targetPost.imageUrl}" class="chat-image">`;
-                } else if (targetPost.type === 'text_image') {
-                    innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="chat-image" style="cursor: pointer;" data-hidden-text="${targetPost.hiddenContent}"></div>` : `<img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="chat-image" style="cursor: pointer;" data-hidden-text="${targetPost.hiddenContent}">`;
-                }
-                return innerContentHtml;
+function renderOriginalPostContent(targetPost) {
+            let innerContentHtml = '';
+            const publicTextHtml = targetPost.publicText ? `<div class="post-content">${parseMarkdown(targetPost.publicText).replace(/\n/g, '<br>')}</div>` : '';
+
+            if (targetPost.type === 'shuoshuo') {
+                innerContentHtml = `<div class="post-content" style="margin-bottom: 10px;">${parseMarkdown(targetPost.content).replace(/\n/g, '<br>')}</div>`;
+            } else if (targetPost.type === 'image_post' && targetPost.imageUrl) {
+                // 【核心修复】直接使用 targetPost.imageUrl 来显示用户上传的图片
+                innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="${targetPost.imageUrl}" class="chat-image"></div>` : `<img src="${targetPost.imageUrl}" class="chat-image">`;
+            } else if (targetPost.type === 'text_image') {
+                const postImageUrl = state.globalSettings.enableAiDrawing && targetPost.image_prompt ? `https://image.pollinations.ai/prompt/${targetPost.image_prompt}` : 'https://i.postimg.cc/KYr2qRCK/1.jpg';
+                innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="${postImageUrl}" class="chat-image" style="cursor: pointer;" data-hidden-text="${targetPost.hiddenContent}"></div>` : `<img src="${postImageUrl}" class="chat-image" style="cursor: pointer;" data-hidden-text="${targetPost.hiddenContent}">`;
             }
+            return innerContentHtml;
+        }
         
             let mainContentHtml;
         
@@ -13137,21 +13190,22 @@ const DEFAULT_NOTIFICATION_SOUND = 'https://www.myinstants.com/media/sounds/noti
                 authorAvatar = defaultAvatar;
             }
         
-            function renderOriginalPostContent(targetPost) {
-                let innerContentHtml = '';
-                const publicTextHtml = targetPost.publicText ? `<div class="post-content">${parseMarkdown(targetPost.publicText).replace(/\n/g, '<br>')}</div>` : '';
-        
-                if (targetPost.type === 'shuoshuo') {
-                    innerContentHtml = `<div class="post-content" style="margin-bottom: 10px;">${parseMarkdown(targetPost.content).replace(/\n/g, '<br>')}</div>`;
-                } else if (targetPost.type === 'image_post' && targetPost.imageUrl) {
-                        const postImageUrl = state.globalSettings.enableAiDrawing && post.image_prompt ? `https://image.pollinations.ai/prompt/${post.image_prompt}` : 'https://i.postimg.cc/KYr2qRCK/1.jpg';
-    innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="${postImageUrl}" class="chat-image"></div>` : `<img src="${postImageUrl}" class="chat-image">`;
-} else if (targetPost.type === 'text_image') {
-    const postImageUrl = state.globalSettings.enableAiDrawing && targetPost.image_prompt ? `https://image.pollinations.ai/prompt/${targetPost.image_prompt}` : 'https://i.postimg.cc/KYr2qRCK/1.jpg';
-    innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="${postImageUrl}" class="chat-image" style="cursor: pointer;" data-hidden-text="${targetPost.hiddenContent}"></div>` : `<img src="${postImageUrl}" class="chat-image" style="cursor: pointer;" data-hidden-text="${targetPost.hiddenContent}">`;
-                }
-                return innerContentHtml;
+function renderOriginalPostContent(targetPost) {
+            let innerContentHtml = '';
+            const publicTextHtml = targetPost.publicText ? `<div class="post-content">${parseMarkdown(targetPost.publicText).replace(/\n/g, '<br>')}</div>` : '';
+
+            if (targetPost.type === 'shuoshuo') {
+                innerContentHtml = `<div class="post-content" style="margin-bottom: 10px;">${parseMarkdown(targetPost.content).replace(/\n/g, '<br>')}</div>`;
+            } else if (targetPost.type === 'image_post' && targetPost.imageUrl) {
+                // 【核心修复 ①】直接使用 targetPost.imageUrl 显示您上传的图片
+                innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="${targetPost.imageUrl}" class="chat-image"></div>` : `<img src="${targetPost.imageUrl}" class="chat-image">`;
+            } else if (targetPost.type === 'text_image') {
+                // （这部分逻辑保持不变，用于AI生成的文字图）
+                const postImageUrl = state.globalSettings.enableAiDrawing && targetPost.image_prompt ? `https://image.pollinations.ai/prompt/${targetPost.image_prompt}` : 'https://i.postimg.cc/KYr2qRCK/1.jpg';
+                innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="${postImageUrl}" class="chat-image" style="cursor: pointer;" data-hidden-text="${targetPost.hiddenContent}"></div>` : `<img src="${postImageUrl}" class="chat-image" style="cursor: pointer;" data-hidden-text="${targetPost.hiddenContent}">`;
             }
+            return innerContentHtml;
+        }
         
             let mainContentHtml;
         
@@ -13743,7 +13797,27 @@ const DEFAULT_NOTIFICATION_SOUND = 'https://www.myinstants.com/media/sounds/noti
                 contentHtml = String(msg.content || '').replace(/\n/g, '<br>');
             }
         }
-                
+                      // ▼▼▼ 【【【核心新增逻辑就在这里！】】】 ▼▼▼
+        else if (item.type === 'char_diary') {
+            const diary = item.content;
+            sourceText = `来自 ${diary.characterName} 的日记`;
+
+            const charChat = state.chats[diary.characterId];
+            const authorAvatar = charChat ? charChat.settings.aiAvatar : defaultAvatar;
+            
+            headerHtml = `<img src="${authorAvatar}" class="avatar"><div class="info"><div class="name">${diary.characterName}</div></div>`;
+            
+            // 1. 获取完整的日记内容
+            const fullDiaryContent = diary.content || '';
+            // 2. 使用与详情页完全相同的Markdown解析和换行逻辑
+            const formattedContent = parseMarkdown(fullDiaryContent).replace(/\n/g, '<br>');
+
+            // 3. 将完整的、格式化后的内容放入 contentHtml
+            contentHtml = `
+                <span class="diary-title">${diary.title}</span>
+                <div class="fav-card-content-full">${formattedContent}</div>
+            `;
+        }     
                 // ▼▼▼ 修改最终的HTML拼接，加入 footerHtml ▼▼▼
                 card.innerHTML = `
                     <div class="fav-card-header">${headerHtml}<div class="source">${sourceText}</div></div>
@@ -19406,8 +19480,12 @@ ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.ma
 ${longTermMemoryContext}        
         # 【最高优先级指令：情感维系】
         **你与用户的关系是最重要的！** 相比于在动态区闲逛，你应该【优先考虑】是否需要主动给用户发消息来维系你们的感情。
-        ${chat.settings.enableTimePerception ? `2.  **【情景感知】**:
-    - **时间**: 感知到当前是 ${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}，你们已经很久没聊天了！你【必须、一定、务必】将本次行动的重点放在使用 'text' 指令给用户发消息，主动开启一个新的、有趣的话题来重新建立联系。绝对不要只是点赞或评论动态，那会显得你很冷漠！** ` : ''}
+${chat.settings.enableTimePerception ? `
+# 【情景感知】
+- **时间**: 感知到当前是${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}。
+- **对话状态**: ${timeContextText}
+${longTimeNoSee ? `【重要提示】你们已经很久没聊天了！你【必须】将本次行动的重点放在使用 'text' 指令给用户发消息，主动开启一个新的、有趣的话题来重新建立联系。绝对不要只是点赞或评论动态，那会显得你很冷漠！` : ''}` : ''}
+
         
         # 【对话节奏铁律 (至关重要！)】
         你的回复【必须】模拟真人的打字和思考习惯。**绝对不要一次性发送一大段文字！** 你应该将你想说的话，拆分成【多条、简短的】消息气泡来发送，每条消息最好不要超过30个字。这会让对话看起来更自然、更真实。
@@ -19429,9 +19507,6 @@ ${longTermMemoryContext}
             -   当你决定回复动态中的某条评论时，你【必须】使用“方式4 (回复评论)”的指令格式。你【必须】正确填写 'replyTo' 字段为被回复者的“本名”。
             -   **即使你之前已经评论过某条动态，但如果现在看到了【新的、你感兴趣的】评论，你【也应该】主动去回复他们，以保持对话的持续性！**
         
-        5.  **【回复铁律】**:
-            -   当你决定回复动态中的某条评论时，你【必须】使用“方式4 (回复评论)”的指令格式。你【必须】正确填写 'replyTo' 字段为被回复者的“本名”。
-            -   **即使你之前已经评论过某条动态，但如果现在看到了【新的、你感兴趣的】评论，你【也应该】主动去回复他们，以保持对话的持续性！**
         6.  你的回复【必须】是一个JSON数组，可以包含一个或多个行动对象。
         
         # 【表情评论指南 】
@@ -19441,7 +19516,7 @@ ${longTermMemoryContext}
         -   **无话可说时**: 如果你觉得一条动态很有趣但又不知道该说什么文字，发送一个相关的表情是最好的互动方式。
         -   **删除动态**: 如果你觉得你之前发的某条动态不妥或过时了，你可以选择删除它。
         
-        # 你的可选行动指令:
+        # 你的可选行动指令
         -   **发消息+更新状态**: '[{"type": "update_status", "status_text": "正在做的事", "is_busy": true}, {"type": "text", "content": "你想对用户说的话..."}]'
         -   **发说说 (原创内容)**: '[{"type": "qzone_post", "postType": "shuoshuo", "content": "动态的文字内容..."}]'
         -   **【重要：转发动态】**: **严禁**自己拼接"//转发"文字！你【必须】使用此专用指令来转发：'[{"type": "repost", "postId": (要转发的动态ID), "comment": "你的转发评论..."}]'
@@ -30132,31 +30207,78 @@ ${recentHistoryWithUser}
             });
         }
 
-        /**
-         * 【全新】点击日记列表项时，打开详情页面查看
-         * @param {number} diaryId - 要查看的日记的ID
-         */
-        async function viewDiary(diaryId) {
-            const char = state.chats[activeCharacterId];
-            if (!char || !char.diary) return;
-
-            const entry = char.diary.find(d => d.id === diaryId);
-            if (entry) {
-                const titleEl = document.getElementById('char-diary-detail-title');
-                const contentEl = document.getElementById('char-diary-detail-content');
-
-                titleEl.textContent = entry.title;
-                const formattedContent = parseMarkdown(entry.content)
-                    .split('\n')
-                    .map(p => `<p>${p || '&nbsp;'}</p>`)
-                    .join('');
-                    
-                contentEl.innerHTML = formattedContent;
-
-                switchToCharScreen('char-diary-detail-screen');
-            }
+    // ▼▼▼ 【请用这个 V2.0 版本】替换旧的 viewDiary 函数 ▼▼▼
+    /**
+     * 【V2.0 | 支持收藏】点击日记列表项时，打开详情页面查看
+     * @param {number} diaryId - 要查看的日记的ID
+     */
+    async function viewDiary(diaryId) {
+        const char = state.chats[activeCharacterId];
+        if (!char || !char.diary) return;
+    
+        const entry = char.diary.find(d => d.id === diaryId);
+        if (entry) {
+            // 1. 将当前日记对象存入全局变量，方便收藏功能调用
+            activeDiaryForViewing = entry;
+    
+            const titleEl = document.getElementById('char-diary-detail-title');
+            const contentEl = document.getElementById('char-diary-detail-content');
+            const favBtn = document.getElementById('favorite-diary-btn');
+    
+            titleEl.textContent = entry.title;
+            const formattedContent = parseMarkdown(entry.content)
+                .split('\n')
+                .map(p => `<p>${p || '&nbsp;'}</p>`)
+                .join('');
+            contentEl.innerHTML = formattedContent;
+    
+            // 2. 检查这篇日记是否已被收藏，并更新按钮状态
+            const existingFavorite = await db.favorites.where({ type: 'char_diary', 'content.id': diaryId }).first();
+            favBtn.classList.toggle('active', !!existingFavorite);
+    
+            switchToCharScreen('char-diary-detail-screen');
         }
-
+    }
+    // ▼▼▼ 【全新】这是收藏/取消收藏日记的核心功能 ▼▼▼
+    /**
+     * 切换当前日记的收藏状态
+     */
+    async function toggleDiaryFavorite() {
+        if (!activeDiaryForViewing || !activeCharacterId) return;
+    
+        const diary = activeDiaryForViewing;
+        const char = state.chats[activeCharacterId];
+        const favBtn = document.getElementById('favorite-diary-btn');
+    
+        // 再次检查是否已收藏
+        const existingFavorite = await db.favorites.where({ type: 'char_diary', 'content.id': diary.id }).first();
+    
+        if (existingFavorite) {
+            // 如果已收藏，则取消收藏
+            await db.favorites.delete(existingFavorite.id);
+            favBtn.classList.remove('active');
+            await showCustomAlert('操作成功', '已取消收藏。');
+        } else {
+            // 如果未收藏，则执行收藏
+            const newFavorite = {
+                type: 'char_diary',
+                // 将日记的完整内容，连同作者信息一起存入
+                content: {
+                    id: diary.id,
+                    title: diary.title,
+                    content: diary.content,
+                    timestamp: diary.timestamp,
+                    characterId: activeCharacterId,
+                    characterName: char.name
+                },
+                timestamp: Date.now() // 收藏操作的时间
+            };
+            await db.favorites.add(newFavorite);
+            favBtn.classList.add('active');
+            await showCustomAlert('操作成功', '已成功收藏到“我的收藏”页面！');
+        }
+    }
+    // ▲▲▲ 新增函数结束 ▲▲▲
         /**
          * 【全新】删除一篇日记
          * @param {number} diaryId - 要删除的日记的ID
@@ -30174,16 +30296,22 @@ ${recentHistoryWithUser}
         // ▲▲▲ 替换结束 ▲▲▲
 
 /**
- * 【全新 V2.0 | 支持群聊】渲染Cphone的QQ界面
+ * 【全新 V2.3 | 头像来源终极修复版】渲染角色视角的QQ聊天列表
  */
 async function renderCharSimulatedQQ() {
     const listEl = document.getElementById('char-chat-list');
     listEl.innerHTML = '';
     const char = state.chats[activeCharacterId];
     
-    if (!char.simulatedConversations || char.simulatedConversations.length === 0) {
+    if (!char || !char.simulatedConversations || char.simulatedConversations.length === 0) {
         listEl.innerHTML = '<p style="text-align:center; color: var(--text-secondary); padding: 50px 0;">点击右上角刷新按钮，<br>看看TA最近都和谁聊天了吧！</p>';
         return;
+    }
+
+    const userConvoIndex = char.simulatedConversations.findIndex(c => c.type === 'private_user');
+    if (userConvoIndex > 0) {
+        const userConvo = char.simulatedConversations.splice(userConvoIndex, 1)[0];
+        char.simulatedConversations.unshift(userConvo);
     }
 
     char.simulatedConversations.forEach((convo, index) => {
@@ -30193,35 +30321,45 @@ async function renderCharSimulatedQQ() {
 
         const lastMessage = convo.messages.slice(-1)[0] || { content: '...' };
 
-        let avatarUrl, displayName;
-
-        // ▼▼▼ 核心修改就在这里！ ▼▼▼
-        if (convo.type === 'group') {
-            displayName = convo.groupName;
+        let avatarHtml, displayName;
+        
+        if (convo.type === 'private_user') {
+            displayName = convo.userRemarkName || (state.qzoneSettings.nickname || '我');
             
-            // 1. 我们不再只用群名，而是构造一个更丰富的英文指令
-            //    - "logo": 告诉AI我们想要一个图标
-            //    - "simple, flat design": 要求设计简洁、扁平化，更像App图标
-            //    - convo.groupName: 将群名作为核心主题
+            // ▼▼▼ 核心修复就在这里！ ▼▼▼
+            // 我们不再从全局设置取头像，而是从当前角色的聊天设置里取“我的头像”
+            const myAvatar = char.settings.myAvatar || defaultAvatar; 
+            const myFrame = char.settings.myAvatarFrame || '';
+            // ▲▲▲ 修复结束 ▲▲▲
+            
+            if (myFrame) {
+                 avatarHtml = `<div class="avatar-group has-frame" style="width: 45px; height: 45px;">
+                                 <div class="avatar-with-frame" style="width: 45px; height: 45px;">
+                                     <img src="${myAvatar}" class="avatar-img" style="border-radius: 50%;">
+                                     <img src="${myFrame}" class="avatar-frame">
+                                 </div>
+                               </div>`;
+            } else {
+                 avatarHtml = `<div class="avatar-group" style="width: 45px; height: 45px;">
+                                 <img src="${myAvatar}" class="avatar" style="border-radius: 50%; width: 45px; height: 45px;">
+                               </div>`;
+            }
+
+        } else if (convo.type === 'group') {
+            displayName = convo.groupName + ` <span class="group-tag">群</span>`;
             const groupAvatarPrompt = `logo, simple, flat design, for a group chat named '${convo.groupName}'`;
-            
-            // 2. 将这个更具体的指令发送给AI绘画引擎
-            avatarUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(groupAvatarPrompt)}`;
-            
-            // (这段添加“群”标签的逻辑保持不变)
-            displayName += ` <span class="group-tag">群</span>`;
-
-        } else { // 私聊的逻辑保持不变
+            const avatarUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(groupAvatarPrompt)}`;
+            avatarHtml = `<div class="avatar-group"><img src="${avatarUrl}" class="avatar" style="border-radius: 50%;"></div>`;
+        
+        } else { // 与NPC的私聊
             displayName = convo.participant.name;
             const npcAvatarPrompt = convo.participant.avatar_prompt || 'anime person';
-            avatarUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(npcAvatarPrompt)}`;
+            const avatarUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(npcAvatarPrompt)}`;
+            avatarHtml = `<div class="avatar-group"><img src="${avatarUrl}" class="avatar" style="border-radius: 50%;"></div>`;
         }
-        // ▲▲▲ 修改结束 ▲▲▲
 
         item.innerHTML = `
-            <div class="avatar-group">
-                 <img src="${avatarUrl}" class="avatar" style="border-radius: 50%;">
-            </div>
+            ${avatarHtml}
             <div class="info">
                 <div class="name-line">
                     <span class="name">${displayName}</span>
@@ -30280,12 +30418,12 @@ async function handleGenerateSimulatedQQ() {
     const characterOriginalName = chat.originalName || chat.name;
 
     // ▼▼▼ 核心修改1：强化AI指令，确保在没有强制JSON模式下也能稳定输出 ▼▼▼
-    const systemPrompt = `
+     const systemPrompt = `
 # 你的任务
-你是一个虚拟社交生活模拟器。你的任务是扮演角色“${chat.name}”，并根据其人设、记忆和最近的互动，虚构出【5到7段】TA最近可能发生的QQ聊天记录。这些记录可以包括【私聊】和【群聊】。
+你是一个虚拟社交生活模拟器。你的任务是扮演角色“${chat.name}”，并根据其人设、记忆和最近的互动，虚构出【5到7段】TA最近可能发生的QQ聊天记录。这些记录中【必须包含一段与用户的私聊】，其余可以是与其他NPC的私聊或群聊。
 
 # 核心规则
-1.  **【世界书优先】**: 如果下面的“世界观设定”中提到了任何具体的【群聊名称】或【群成员】，你【必须】为这个群聊生成一段对话。
+1.  **【与用户的对话 (最高优先级)】**: 你的生成结果中，【必须且只能包含一个】与用户（即“我”）的私聊记录。
 2.  **创造性与多样性**: 自由创造符合角色背景的NPC和群聊，对话内容要多样化，反映角色的生活。
 3.  **关联性**: 对话内容应巧妙地反映角色的长期记忆、世界观，以及与用户互动可能带来的心情变化。
 4.  **简洁性**: 每段对话的总长度应在8到15句之间。
@@ -30293,12 +30431,24 @@ async function handleGenerateSimulatedQQ() {
     - 你的回复【必须且只能】是一个JSON数组格式的字符串。
     - 你的回复必须以 \`[\` 开始，并以 \`]\` 结束。
     - 【绝对禁止】在JSON数组前后添加任何多余的文字、解释、或 markdown 标记 (如 \`\`\`json)。
-    - 数组中的每个元素都代表一段对话，且【必须】是以下两种格式之一：
+    - 数组中的每个元素都代表一段对话，且【必须】是以下三种格式之一：
 
-    **格式 A：私聊**
+    **格式 A：与用户的私聊 (必须有1个)**
     \`\`\`json
     {
-      "type": "private",
+      "type": "private_user",
+      "userRemarkName": "你为用户起的专属备注名",
+      "messages": [
+        { "sender": "${characterOriginalName}", "content": "你对用户说的话" },
+        { "sender": "${userDisplayNameForAI}", "content": "用户对你说的话" }
+      ]
+    }
+    \`\`\`
+
+    **格式 B：与NPC的私聊**
+    \`\`\`json
+    {
+      "type": "private_npc",
       "participant": {
         "name": "NPC的名字",
         "avatar_prompt": "一段用于生成头像的【英文】关键词, 风格为动漫/插画/二次元等, 禁止真人"
@@ -30310,7 +30460,7 @@ async function handleGenerateSimulatedQQ() {
     }
     \`\`\`
 
-    **格式 B：群聊**
+    **格式 C：群聊**
     \`\`\`json
     {
       "type": "group",
@@ -30321,12 +30471,11 @@ async function handleGenerateSimulatedQQ() {
       ],
       "messages": [
         { "sender": "${characterOriginalName}", "content": "我在群里说的话" },
-        { "sender": "NPC成员1", "content": "成员1回复我" },
-        { "sender": "NPC成员2", "content": "成员2加入了讨论" }
+        { "sender": "NPC成员1", "content": "成员1回复我" }
       ]
     }
     \`\`\`
-    - **重要**: \`messages\` 数组中的 \`sender\` 字段，【必须】使用角色的【本名】("${characterOriginalName}") 或NPC的名字。
+    - **重要**: \`messages\` 数组中的 \`sender\` 字段，【必须】使用角色的【本名】("${characterOriginalName}")、NPC的名字、或用户的名字("${userDisplayNameForAI}")。
 
 # 供你参考的上下文
 - **你的角色设定**: ${chat.settings.aiPersona}
@@ -30391,7 +30540,7 @@ ${recentHistoryWithUser}
 }
 
 /**
- * 【全新 | V3.0 页面版 | 支持群聊】打开并显示指定的模拟聊天记录
+ * 【全新 | V2.4 | 专属头像终极修复版】打开并显示指定的模拟聊天记录
  * @param {number} conversationIndex - 在数组中的索引
  */
 async function openCharSimulatedConversation(conversationIndex) {
@@ -30399,7 +30548,6 @@ async function openCharSimulatedConversation(conversationIndex) {
     const conversation = mainChar.simulatedConversations[conversationIndex];
     if (!conversation) return;
 
-    const conversationScreen = document.getElementById('char-qq-conversation-screen');
     const titleEl = document.getElementById('char-conversation-partner-name');
     const bodyEl = document.getElementById('char-conversation-messages');
     const inputEl = document.getElementById('char-simulated-input');
@@ -30409,60 +30557,84 @@ async function openCharSimulatedConversation(conversationIndex) {
     const isDarkMode = document.getElementById('phone-screen').classList.contains('dark-mode');
     bodyEl.style.backgroundColor = isDarkMode ? '#000000' : '#f0f2f5';
 
-    const participantMap = new Map();
+    let tempChatObjectForRendering;
+    const userDisplayNameForAI = (state.qzoneSettings.nickname === '{{user}}' || !state.qzoneSettings.nickname) ? '用户' : state.qzoneSettings.nickname;
+    
+    if (conversation.type === 'private_user') {
+        titleEl.textContent = conversation.userRemarkName;
+        inputEl.placeholder = `与 ${conversation.userRemarkName} 的对话`;
 
-    // ▼▼▼ 核心修改就在这里！▼▼▼
-    // 我们现在统一使用 participantMap 来处理所有头像，不再区分私聊和群聊
+        tempChatObjectForRendering = {
+            id: 'temp_user_chat', isGroup: false,
+            name: conversation.userRemarkName,
+            originalName: mainChar.originalName,
+            settings: {
+                ...mainChar.settings,
+                myAvatar: mainChar.settings.aiAvatar,
+                myAvatarFrame: mainChar.settings.aiAvatarFrame,
+                
+                // ▼▼▼ 核心修复就在这里！ ▼▼▼
+                // 我们不再从全局设置取头像，而是从当前角色的聊天设置里取“我的头像”
+                aiAvatar: mainChar.settings.myAvatar,
+                // ▲▲▲ 修复结束 ▲▲▲
+                
+                aiAvatarFrame: mainChar.settings.myAvatarFrame
+            }
+        };
 
-    if (conversation.type === 'group') {
+    } else if (conversation.type === 'group') {
         titleEl.textContent = `${conversation.groupName} (${conversation.participants.length + 1})`;
         inputEl.placeholder = `在 ${conversation.groupName} 中聊天`;
-        
-        conversation.participants.forEach(p => {
-            participantMap.set(p.name, `https://image.pollinations.ai/prompt/${encodeURIComponent(p.avatar_prompt || 'anime person')}`);
-        });
-        
-    } else { // 私聊逻辑
+
+        tempChatObjectForRendering = {
+            id: 'temp_group_chat', isGroup: true,
+            name: conversation.groupName,
+            originalName: mainChar.originalName,
+            members: conversation.participants.map(p => ({
+                originalName: p.name,
+                groupNickname: p.name,
+                avatar: `https://image.pollinations.ai/prompt/${encodeURIComponent(p.avatar_prompt || 'anime person')}`
+            })),
+            settings: {
+                ...mainChar.settings,
+                myNickname: mainChar.name,
+                myAvatar: mainChar.settings.aiAvatar,
+                myAvatarFrame: mainChar.settings.aiAvatarFrame,
+            }
+        };
+
+    } else { // 与NPC的私聊
         titleEl.textContent = conversation.participant.name;
         inputEl.placeholder = `与 ${conversation.participant.name} 的对话`;
-        
-        // 【关键修复】为私聊也添加头像到 participantMap 中
-        const npcAvatarUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(conversation.participant.avatar_prompt || 'anime person')}`;
-        participantMap.set(conversation.participant.name, npcAvatarUrl);
+
+        tempChatObjectForRendering = {
+            id: 'temp_npc_chat', isGroup: false,
+            name: conversation.participant.name,
+            originalName: mainChar.originalName,
+            settings: {
+                ...mainChar.settings,
+                myAvatar: mainChar.settings.aiAvatar,
+                myAvatarFrame: mainChar.settings.aiAvatarFrame,
+                aiAvatar: `https://image.pollinations.ai/prompt/${encodeURIComponent(conversation.participant.avatar_prompt || 'anime person')}`,
+                aiAvatarFrame: ''
+            }
+        };
     }
-    
-    // 无论私聊还是群聊，都把主角自己的信息也存入Map
-    participantMap.set(mainChar.originalName || mainChar.name, mainChar.settings.aiAvatar);
-    
-    const tempChatObjectForRendering = {
-        id: 'temp_simulated_chat',
-        isGroup: conversation.type === 'group',
-        name: conversation.groupName || conversation.participant.name,
-        originalName: mainChar.originalName,
-        members: conversation.participants ? conversation.participants.map(p => ({
-            originalName: p.name,
-            groupNickname: p.name,
-            avatar: participantMap.get(p.name) || defaultGroupMemberAvatar
-        })) : [],
-        settings: {
-            theme: mainChar.settings.theme,
-            fontSize: mainChar.settings.fontSize,
-            customCss: mainChar.settings.customCss,
-            myNickname: mainChar.name,
-            myAvatar: mainChar.settings.aiAvatar,
-            // 【关键修复】对于私聊，我们也从 map 中获取aiAvatar
-            aiAvatar: conversation.participant ? participantMap.get(conversation.participant.name) : '',
-            myAvatarFrame: mainChar.settings.aiAvatarFrame,
-            aiAvatarFrame: ''
-        }
-    };
-    // ▲▲▲ 修改结束 ▲▲▲
     
     for (const msg of conversation.messages) {
         const isFromMainChar = msg.sender === (mainChar.originalName || mainChar.name);
+        const isFromUser = msg.sender === userDisplayNameForAI;
+
+        let role;
+        
+        if (conversation.type === 'private_user') {
+            role = isFromUser ? 'assistant' : 'user';
+        } else {
+            role = isFromMainChar ? 'user' : 'assistant';
+        }
         
         const tempMessageObject = {
-            role: isFromMainChar ? 'user' : 'assistant',
+            role: role,
             senderName: msg.sender,
             content: msg.content,
             timestamp: Date.now() + Math.random()
@@ -33636,25 +33808,7 @@ async function resetButtonOrder() {
 }
 // ▲▲▲ 新增代码结束 ▲▲▲
 
-/**
- * 【全新 | 安卓键盘遮挡终极解决方案】
- * 当输入框获得焦点时，平滑地将输入框本身滚动到可视区域内。
- */
-function setupAndroidKeyboardFix() {
-    const chatInput = document.getElementById('chat-input');
-    if (!chatInput) return;
 
-    // 当用户点击输入框时触发
-    chatInput.addEventListener('focus', () => {
-        // 延迟一小段时间，等待键盘动画完全弹出
-        setTimeout(() => {
-            // 直接调用元素自身的 scrollIntoView 方法，
-            // 浏览器会自动找到最近的可滚动父容器（在这里是 #chat-messages）并将其滚动到合适位置。
-            // 'block: 'end'' 确保元素的底部与容器底部对齐，非常适合输入框场景。
-            chatInput.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        }, 300); 
-    });
-}
 // ▼▼▼ 【全新 V2.0 | 已修复】这是高级数据清理功能的【全部核心JS代码】，请完整粘贴 ▼▼▼
 
 let selectedCharsForClear = []; // 用于存储第一步选择的角色ID
@@ -38318,6 +38472,7 @@ document.getElementById('import-single-chat-input').addEventListener('change', (
 // ▼▼▼ 【全新】Cphone功能事件绑定 ▼▼▼
 document.getElementById('add-char-memo-btn').addEventListener('click', () => openMemoEditor());
 document.getElementById('add-char-diary-btn').addEventListener('click', () => openDiaryEditor());
+document.getElementById('favorite-diary-btn').addEventListener('click', toggleDiaryFavorite);
 // ▲▲▲ 新增事件绑定结束 ▲▲▲
         // “重新生成”按钮
         document.getElementById('regenerate-char-qq-btn').addEventListener('click', handleGenerateSimulatedQQ);
@@ -38668,7 +38823,7 @@ document.getElementById('copy-timestamp-btn').addEventListener('click', copyMess
 
 
     checkForUpdates();
-             setupAndroidKeyboardFix();
+
                     showScreen('home-screen');
                 }
         
@@ -38896,8 +39051,6 @@ document.getElementById('copy-timestamp-btn').addEventListener('click', copyMess
 <!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
 </body>
 </html>
-
-
 
 
 
